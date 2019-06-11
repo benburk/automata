@@ -1,10 +1,8 @@
-# Formal Languages
-Formal languages is a finite automata library I built during my formal languages course.
+# Automata
+Automata is an automata library written in Python.
 
-## Features
-- DFA from regex
-- DFA operations (kleen, intersection, union, concatenation)
-- Print pictures
+## Planned Features
+- DFA, NFA, PDA, TM, Regex
 
 
 ## Install
