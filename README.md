@@ -16,3 +16,6 @@ $ git clone https://github.com/benburk/formal_languages
 $ cd formal_languages
 $ pip install -r requirements.txt
 ```
+
+## References
+- https://github.com/caleb531/automata
