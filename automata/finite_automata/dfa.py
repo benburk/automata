@@ -13,6 +13,26 @@ class DFA:
         self.start_state = start_state
         self.final_states = final_states
 
+    @classmethod
+    def from_atom(cls, atom, alphabet="ab"):
+        """create a DFA from a string"""
+        state = start_state = "q0"
+        garbage = "q1"
+        states = {start_state, garbage}
+        transitions = {garbage: {symbol: garbage for symbol in alphabet}}
+
+        for i, char in enumerate(atom, 2):
+            new_state = f"q{i}"
+            transitions[state] = {
+                symbol: new_state if char == symbol else garbage for symbol in alphabet
+            }
+            state = new_state
+            states.add(state)
+
+        # have all edges from final state point to garbage state
+        transitions[state] = {symbol: garbage for symbol in alphabet}
+        return cls(states, alphabet, transitions, start_state, {state})
+
     def __iter__(self):
         visited = {self.start_state}
         queue = [self.start_state]
@@ -28,6 +48,17 @@ class DFA:
     def __contains__(self, state):
         return state in self.states
 
+    def complement(self):
+        """return the complement of the dfa"""
+
+        return DFA(
+            set(self.states),
+            self.alphabet,
+            self.transitions.copy(),
+            self.start_state,
+            self.states - self.final_states,
+        )
+
     def generate_dot(self, file_name="out.png"):
         """ generate a dotfile corresponding to the FA """
         # header
@@ -40,7 +71,7 @@ class DFA:
                 edge_labels[(state, to_state)] += symbol
 
         for (state, to_state), label in edge_labels.items():
-            output += f"\"{state}\" -> \"{to_state}\" [label={','.join(label)}];\n"
+            output += f"\"{state}\" -> \"{to_state}\" [label=\"{','.join(label)}\"];\n"
 
         output += "}"
         dot_file = pydot.graph_from_dot_data(output)[0]
@@ -49,17 +80,18 @@ class DFA:
 
 def main():
     """tests"""
-    dfa = DFA(
-        states={"q0", "q1", "q2"},
-        alphabet={"0", "1"},
-        transitions={
-            "q0": {"0": "q0", "1": "q1"},
-            "q1": {"0": "q0", "1": "q2"},
-            "q2": {"0": "q2", "1": "q1"},
-        },
-        start_state="q0",
-        final_states={"q1"},
-    )
+    # dfa = DFA(
+    #     states={"q0", "q1", "q2"},
+    #     alphabet="ab",
+    #     transitions={
+    #         "q0": {"a": "q0", "b": "q1"},
+    #         "q1": {"a": "q0", "b": "q2"},
+    #         "q2": {"a": "q2", "b": "q1"},
+    #     },
+    #     start_state="q0",
+    #     final_states={"q1"},
+    # )
+    dfa = DFA.from_atom("abb")
     dfa.generate_dot()
 
 
