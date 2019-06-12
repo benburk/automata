@@ -18,3 +18,5 @@ $ pip install -r requirements.txt
 
 ## Similar Projects
 - https://github.com/caleb531/automata
+- https://github.com/pytransitions/transitions
+- https://github.com/fgmacedo/python-statemachine
