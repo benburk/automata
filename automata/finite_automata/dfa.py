@@ -66,7 +66,7 @@ class DFA:
 
         names = {self.start_state: f"{self.start_state}-"}
         for state in self.states:
-            suffix = ''
+            suffix = ""
             if state is self.start_state:
                 suffix = "-"
             if state in self.final_states:
@@ -86,7 +86,7 @@ class DFA:
 
         output += "}"
         dot_file = pydot.graph_from_dot_data(output)[0]
-        dot_file.write_png(file_name)
+        dot_file.write_png(f"out/{file_name}")
 
 
 def main():
