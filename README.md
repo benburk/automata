@@ -6,14 +6,15 @@ Automata is an automata library written in Python.
 
 
 ## Install
+TODO: Use makefile
 ```
 # install pydot
 brew install graphviz
 
-$ git clone https://github.com/benburk/formal_languages
-$ cd formal_languages
+$ git clone https://github.com/benburk/automata
+$ cd automata
 $ pip install -r requirements.txt
 ```
 
-## References
+## Similar Projects
 - https://github.com/caleb531/automata
