@@ -60,9 +60,18 @@ class DFA:
         )
 
     def generate_dot(self, file_name="out.png"):
-        """ generate a dotfile corresponding to the FA """
+        """generate a dotfile corresponding to the FA"""
         # header
         output = "digraph {rankdir=LR;node[shape=circle];\n"
+
+        names = {self.start_state: f"{self.start_state}-"}
+        for state in self.states:
+            suffix = ''
+            if state is self.start_state:
+                suffix = "-"
+            if state in self.final_states:
+                suffix = "\u00b1" if state is self.start_state else "+"
+            names[state] = f"{state}{suffix}"
 
         # combine edge labels going to same state
         edge_labels = defaultdict(str)
@@ -71,7 +80,9 @@ class DFA:
                 edge_labels[(state, to_state)] += symbol
 
         for (state, to_state), label in edge_labels.items():
-            output += f"\"{state}\" -> \"{to_state}\" [label=\"{','.join(label)}\"];\n"
+            output += '"{}" -> "{}" [label="{}"];\n'.format(
+                names[state], names[to_state], ",".join(label)
+            )
 
         output += "}"
         dot_file = pydot.graph_from_dot_data(output)[0]
