@@ -4,6 +4,3 @@ disable=bad-continuation
 [BASIC]
 bad-functions=map,filter,input  # don't builtin function names
 good-names=i,j,k,ex,Run,_,n  # variable names that are okay
-
-[DESIGN]
-max-args=6

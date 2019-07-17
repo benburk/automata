@@ -16,6 +16,14 @@ $ cd automata
 $ pip install -r requirements.txt
 ```
 
+Union
+Intersection
+Concatenation
+Negation
+Kleene closure
+Reversal
+Init
+
 ## Similar Projects
 - https://github.com/caleb531/automata
 - https://github.com/pytransitions/transitions
