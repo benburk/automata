@@ -14,7 +14,7 @@ class State:  # pylint: disable-msg=too-few-public-methods
     """an empty state class"""
 
 
-class FSM:
+class Fsm:
     """fsm class"""
 
     def __init__(self, states, alphabet, start_state, final_states):

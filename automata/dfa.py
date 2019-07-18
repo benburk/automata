@@ -2,11 +2,17 @@
 from collections import defaultdict
 
 import pydot
-from fsm import FSM
+from fsm import Fsm
 from fsm import State
+from regex_parser import LexRule
+from regex_parser import make_lexer
+from regex_parser import make_parser
+from regex_parser import OpPrecedence
+from regex_parser import ParseRule
+from regex_parser import Token
 
 
-class Dfa(FSM):
+class Dfa(Fsm):
     """
     a Deterministic Finite Automaton is a 5-tuple M=(Q,Σ,δ,q0,F) consisting of:
         - a finite set of states Q
@@ -53,6 +59,46 @@ class Dfa(FSM):
         # have all edges from final state point to garbage state
         transitions.update({(state, symbol): garbage for symbol in alphabet})
         return cls(states, alphabet, transitions, start_state, {state})
+
+    @classmethod
+    def from_regex(cls, pattern, alphabet="ab"):
+        """create a dfa from a regular expression"""
+        token_types = (
+            LexRule(r"\s+", lambda match: None),
+            LexRule(fr'[{"".join(alphabet)}]', lambda match: Token("atom", match)),
+            LexRule(r"\+", lambda match: Token("add", None)),
+            LexRule(r"\*", lambda match: Token("star", None)),
+            LexRule(r"[\^Λ]", lambda match: Token("null", "Λ")),
+            LexRule(r"\(", lambda match: Token("(", None)),
+            LexRule(r"\)", lambda match: Token(")", None)),
+        )
+        precedence_table = (
+            OpPrecedence("left", ("add")),
+            OpPrecedence("left", ("atom")),
+            OpPrecedence("left", ("star")),
+        )
+        rule_table = (
+            ParseRule(
+                None, ["atom"], lambda n: Token("E", Dfa.from_atom(n.value, alphabet))
+            ),
+            ParseRule(None, ["(", "E", ")"], lambda l, ex, r: ex),
+            ParseRule(
+                "star", ["E", "star"], lambda l, op: Token("E", l.value.kleene_star())
+            ),
+            ParseRule(
+                "atom",
+                ["E", "E"],
+                lambda l, r: Token("E", l.value.concatenate(r.value)),
+            ),
+            ParseRule(
+                "add",
+                ["E", "add", "E"],
+                lambda l, op, r: Token("E", l.value.union(r.value)),
+            ),
+        )
+
+        tokens = make_lexer(token_types)(pattern)
+        return make_parser(rule_table, precedence_table)(tokens)
 
     def accepts(self, string):
         """ check whether this DFA accepts a particular string """
@@ -244,8 +290,11 @@ class Dfa(FSM):
 
 def main():
     """ the main method leave me alone pylint """
-    dfa = Dfa.from_atom("bab")
-    dfa = dfa.complement()
+    # dfa = Dfa.from_atom("bab")
+    # dfa = dfa.complement()
+    # dfa.to_png()
+
+    dfa = Dfa.from_regex("b*a")
     dfa.to_png()
 
 

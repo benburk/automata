@@ -4,10 +4,10 @@ this module creates lexers and parsers for a particular grammar
 import re
 from collections import namedtuple
 
-from dfa import Dfa
+# from dfa import Dfa
 
 Token = namedtuple("Token", "type value")
-LexRule = namedtuple("LexRule", "experession handler")
+LexRule = namedtuple("LexRule", "expression handler")
 ParseRule = namedtuple("ParseRule", "operator inputs handler")
 OpPrecedence = namedtuple("OpPrecedence", "associativity operators")
 
@@ -80,41 +80,3 @@ def make_parser(rules, precedence):
         return stack[0].value
 
     return parse
-
-
-def regex_to_dfa(pattern, alphabet):
-    """build dfa from regex"""
-    token_types = (
-        LexRule(r"\s+", lambda match: None),
-        LexRule(fr'[{"".join(alphabet)}]', lambda match: Token("atom", match)),
-        LexRule(r"\+", lambda match: Token("add", None)),
-        LexRule(r"\*", lambda match: Token("star", None)),
-        LexRule(r"[\^Λ]", lambda match: Token("null", "Λ")),
-        LexRule(r"\(", lambda match: Token("(", None)),
-        LexRule(r"\)", lambda match: Token(")", None)),
-    )
-    precedence_table = (
-        OpPrecedence("left", ("add")),
-        OpPrecedence("left", ("atom")),
-        OpPrecedence("left", ("star")),
-    )
-    rule_table = (
-        ParseRule(
-            None, ["atom"], lambda n: Token("E", Dfa.from_atom(n.value, alphabet))
-        ),
-        ParseRule(None, ["(", "E", ")"], lambda l, ex, r: ex),
-        ParseRule(
-            "star", ["E", "star"], lambda l, op: Token("E", l.value.kleene_star())
-        ),
-        ParseRule(
-            "atom", ["E", "E"], lambda l, r: Token("E", l.value.concatenate(r.value))
-        ),
-        ParseRule(
-            "add",
-            ["E", "add", "E"],
-            lambda l, op, r: Token("E", l.value.union(r.value)),
-        ),
-    )
-
-    tokens = make_lexer(token_types)(pattern)
-    return make_parser(rule_table, precedence_table)(tokens)
