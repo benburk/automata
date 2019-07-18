@@ -1,99 +1,251 @@
-"""Deterministic finite automaton"""
+""" finite automaton class """
 from collections import defaultdict
 
 import pydot
-from automaton import Automaton
-from automaton import State
+from fsm import FSM
+from fsm import State
 
 
-class DFA(Automaton):
-    """Deterministic finite automaton"""
+class Dfa(FSM):
+    """
+    a Deterministic Finite Automaton is a 5-tuple M=(Q,Σ,δ,q0,F) consisting of:
+        - a finite set of states Q
+        - a finite set of input symbols called the alphabet Σ
+        - a transition function δ: Q × Σ → Q
+        - an initial state q0 ∈ Q
+        - a set of accept states F ⊆ Q
+    """
 
-    # pylint: disable-msg=too-many-arguments
-    def __init__(self, states, alphabet, transitions, start_state, final_states):
+    def __init__(
+        self, states, alphabet, transitions, start_state, final_states
+    ):  # pylint: disable-msg=too-many-arguments
         super().__init__(states, alphabet, start_state, final_states)
         self.transitions = transitions
 
-    @classmethod
-    def from_atom(cls, atom, alphabet="ab"):
-        """create a DFA from a string"""
-        state = start_state = State()
-        garbage = State()
-        states = {start_state, garbage}
-        transitions = {garbage: {symbol: garbage for symbol in alphabet}}
-
-        for char in atom:
-            new_state = State()
-            transitions[state] = {
-                symbol: new_state if char == symbol else garbage for symbol in alphabet
-            }
-            state = new_state
-            states.add(state)
-
-        # have all edges from final state point to garbage state
-        transitions[state] = {symbol: garbage for symbol in alphabet}
-        return cls(states, alphabet, transitions, start_state, {state})
-
     def __iter__(self):
+        """iterate through the DFA using BFS"""
         visited = {self.start_state}
         queue = [self.start_state]
         while queue:
             state = queue.pop()
             yield state
             for symbol in self.alphabet:
-                neighbour = self.transitions[state][symbol]
+                neighbour = self.transitions[state, symbol]
                 if neighbour not in visited:
                     visited.add(neighbour)
                     queue.append(neighbour)
 
-    def complement(self):
-        """return the complement of the dfa"""
-        lookup = {state: State() for state in self.states}  # create new states
-        transitions = {}
-        for state, paths in self.transitions.items():
-            transitions[lookup[state]] = {
-                symbol: lookup[state] for symbol, state in paths.items()
-            }
-        final_states = {lookup[state] for state in self.states - self.final_states}
+    @classmethod
+    def from_atom(cls, atom, alphabet="ab"):
+        """create an FA from an atom"""
+        state = start_state = State()
+        garbage = State()
+        states = {start_state, garbage}
+        transitions = {(garbage, symbol): garbage for symbol in alphabet}
 
-        return DFA(
-            set(lookup.values()),
+        for char in atom:
+            new_state = State()
+            for symbol in alphabet:
+                transitions[state, symbol] = new_state if char == symbol else garbage
+            state = new_state
+            states.add(state)
+
+        # have all edges from final state point to garbage state
+        transitions.update({(state, symbol): garbage for symbol in alphabet})
+        return cls(states, alphabet, transitions, start_state, {state})
+
+    def accepts(self, string):
+        """ check whether this DFA accepts a particular string """
+        state = self.start_state
+        for char in string:
+            state = self.transitions[state, char]
+        return state in self.final_states
+
+    def complement(self):
+        """return a DFA that is the complement of this DFA"""
+        states = {x: State() for x in self.states}
+        transitions = {
+            (states[state], symbol): states[to_state]
+            for (state, symbol), to_state in self.transitions.items()
+        }
+        final_states = {states[state] for state in self.states - self.final_states}
+
+        return Dfa(
+            set(states.values()),
             self.alphabet,
             transitions,
-            lookup[self.start_state],
+            states[self.start_state],
+            final_states,
+        )
+
+    def union(self, other):
+        """return the union of this DFA with another"""
+        start_label = frozenset([self.start_state, other.start_state])
+        states = {start_label: State()}  # maps a label to its new state
+        transitions = dict()
+        final_states = set()
+
+        boundary = {start_label}
+        while boundary:
+            label = boundary.pop()
+            if any(x in self.final_states | other.final_states for x in label):
+                final_states.add(states[label])
+
+            merged_transitions = {**self.transitions, **other.transitions}
+            for symbol in self.alphabet:
+                # build next label
+                next_label = [merged_transitions[x, symbol] for x in label]
+                next_label = frozenset(next_label)
+                # create state for new labels
+                if next_label not in states:
+                    states[next_label] = State()
+                    boundary.add(next_label)
+
+                transitions[states[label], symbol] = states[next_label]
+
+        return Dfa(
+            set(states.values()),
+            self.alphabet,
+            transitions,
+            states[start_label],
+            final_states,
+        )
+
+    def kleene_star(self):
+        """ return an FA that is the kleene closure of this FA """
+        start_label = frozenset([self.start_state])
+        states = {start_label: State()}
+        transitions = dict()
+        final_states = {states[start_label]}
+
+        boundary = {start_label}
+        while boundary:
+            label = boundary.pop()
+            if any(x in self.final_states for x in label):
+                final_states.add(states[label])
+
+            for symbol in self.alphabet:
+                # build next label
+                next_label = [self.transitions[x, symbol] for x in label]
+                if any(x in self.final_states for x in next_label):
+                    next_label.append(self.start_state)
+                next_label = frozenset(next_label)
+                # create state for new labels
+                if next_label not in states:
+                    states[next_label] = State()
+                    boundary.add(next_label)
+
+                transitions[states[label], symbol] = states[next_label]
+
+        return Dfa(
+            set(states.values()),
+            self.alphabet,
+            transitions,
+            states[start_label],
+            final_states,
+        )
+
+    def concatenate(self, other):
+        """ return an FA that is the concatenation of this FA with other """
+        start_label = [self.start_state]
+        if self.start_state in self.final_states:
+            start_label.append(other.start_state)
+        start_label = frozenset(start_label)
+
+        states = {start_label: State()}
+        transitions = dict()
+        final_states = set()
+
+        boundary = {start_label}
+        while boundary:
+            label = boundary.pop()
+            if any(x in other.final_states for x in label):
+                final_states.add(states[label])
+
+            for symbol in self.alphabet:
+                # build next label
+                merged_transitions = {**self.transitions, **other.transitions}
+                next_label = [merged_transitions[x, symbol] for x in label]
+                if any(x in self.final_states for x in next_label):
+                    next_label.append(other.start_state)
+                next_label = frozenset(next_label)
+                # create state for new labels
+                if next_label not in states:
+                    states[next_label] = State()
+                    boundary.add(next_label)
+
+                transitions[states[label], symbol] = states[next_label]
+
+        return Dfa(
+            set(states.values()),
+            self.alphabet,
+            transitions,
+            states[start_label],
+            final_states,
+        )
+
+    def intersect(self, other):
+        """ return an FA that is the intersection of this FA with other """
+        start_label = frozenset([self.start_state, other.start_state])
+        states = {start_label: State()}  # maps a label to its new state
+        transitions = dict()
+        final_states = set()
+
+        boundary = {start_label}
+        while boundary:
+            label = boundary.pop()
+            if all(x in self.final_states | other.final_states for x in label):
+                final_states.add(states[label])
+
+            for symbol in self.alphabet:
+                # build next label
+                merged_transitions = {**self.transitions, **other.transitions}
+                next_label = [merged_transitions[x, symbol] for x in label]
+                next_label = frozenset(next_label)
+                # create state for new labels
+                if next_label not in states:
+                    states[next_label] = State()
+                    boundary.add(next_label)
+
+                transitions[states[label], symbol] = states[next_label]
+
+        return Dfa(
+            set(states.values()),
+            self.alphabet,
+            transitions,
+            states[start_label],
             final_states,
         )
 
     def to_png(self, file_name="out.png"):
-        """convert this DFA to a PNG representation"""
-        output = "digraph {rankdir=LR;node[shape=circle];\n"  # dot header
+        """ generate a dotfile corresponding to the FA """
+        # header
+        output = "digraph {rankdir=LR;node[shape=circle];\n"
 
         # name the states
         names = {state: f"q{i}" for i, state in enumerate(self)}
-        names[self.start_state] += "-"
         for state in self.final_states:
             names[state] += "\u00b1" if state is self.start_state else "+"
 
         # combine edge labels going to same state
         edge_labels = defaultdict(str)
-        for state, paths in self.transitions.items():
-            for symbol, to_state in paths.items():
-                edge_labels[(state, to_state)] += symbol
+        for (from_state, symbol), to_state in self.transitions.items():
+            edge_labels[(from_state, to_state)] += symbol
 
-        # write transitions to dot
-        for (state, to_state), label in edge_labels.items():
-            output += '"{}" -> "{}" [label="{}"];\n'.format(
-                names[state], names[to_state], ",".join(label)
-            )
+        # write the edges
+        for (start, end), label in edge_labels.items():
+            label = ",".join(sorted(label))
+            output += f'"{names[start]}"->"{names[end]}" [label="{label}"];\n'
 
         output += "}"
         dot_file = pydot.graph_from_dot_data(output)[0]
-        dot_file.write_png(f"out/{file_name}")
+        dot_file.write_png("out/" + file_name)
 
 
 def main():
-    """quick tests"""
-    dfa = DFA.from_atom("bab")
+    """ the main method leave me alone pylint """
+    dfa = Dfa.from_atom("bab")
+    dfa = dfa.complement()
     dfa.to_png()
 
 
